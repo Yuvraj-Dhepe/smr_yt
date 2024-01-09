@@ -30,22 +30,7 @@
   "editor.acceptSuggestionOnEnter": "on",
   "editor.suggest.preview": true,
   "editor.hover.enabled": true,
-  "indentRainbow.colors": [
-    "#ffb573",
-    "#9ad4fc",
-    "#99f799",
-    "#ffa3a4",
-    "#d4a6ff",
-    "#a6ffdd",
-    "#fc8ddb",
-    "#bfbbbb",
-    "#feff78",
-    "#17BECF"
-  ],
-  "indentRainbow.errorColor": "#fa5555",
-
-  "indentRainbow.tabmixColor": "#802060",
-
+  "indentRainbow.indicatorStyle": "light",
   "editor.colorDecorators": true,
   "editor.defaultFormatter": "ms-python.autopep8",
   "editor.codeActionsOnSave": {

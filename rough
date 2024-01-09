@@ -1,0 +1,692 @@
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "id": "9ade4cb7",
+   "metadata": {},
+   "source": [
+    "### Importing Libraries"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "94faf225-2c03-498d-9b11-86ed4b820452",
+   "metadata": {
+    "tags": []
+   },
+   "outputs": [],
+   "source": [
+    "import pandas as pd\n",
+    "import numpy as np\n",
+    "import utils\n",
+    "import plotly.graph_objs as go\n",
+    "import dash\n",
+    "from dash import dcc\n",
+    "from dash import html\n",
+    "import plots\n",
+    "from dash.dependencies import Input, Output\n",
+    "from dateutil import parser\n",
+    "%load_ext autoreload\n",
+    "%autoreload 2"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "7f404255",
+   "metadata": {},
+   "source": [
+    "### Parsing the Columns"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "921863f6",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "bottom_autos_info = pd.read_csv(\"./autos/bottom_autos_info.csv\", index_col = 0)\n",
+    "bottom_autos_comments = pd.read_csv(\"./autos/bottom_autos_comments.csv\", index_col = 0)\n",
+    "bottom_autos_vids = pd.read_csv(\"./autos/bottom_autos_vid.csv\", index_col = 0)\n",
+    "bottom_autos_vids = utils.parse_cols(bottom_autos_vids)\n",
+    "\n",
+    "\n",
+    "top_autos_info = pd.read_csv(\"./autos/top_autos_info.csv\", index_col = 0)\n",
+    "top_autos_comments = pd.read_csv(\"./autos/top_autos_comments.csv\", index_col = 0)\n",
+    "top_autos_vids = pd.read_csv(\"./autos/top_autos_vid.csv\", index_col = 0)\n",
+    "top_autos_vids = utils.parse_cols(top_autos_vids)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "e6ffc336",
+   "metadata": {},
+   "source": [
+    "### Describing the Data"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "73578579",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "top_autos_vids.describe(percentiles = [.25, .5, .75, .9, .95, .99])"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "0b634947",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "bottom_autos_vids.describe(percentiles = [.25, .5, .75, .9, .95, .99])"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "f9620808",
+   "metadata": {},
+   "source": [
+    "### Adding the popularity Column and combining the popular and unpopular dataframes"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "c8b03387",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "bottom_autos_info = utils.add_pop_unpop_col(bottom_autos_info, False)\n",
+    "bottom_autos_comments = utils.add_pop_unpop_col(bottom_autos_comments, False)\n",
+    "bottom_autos_vids = utils.add_pop_unpop_col(bottom_autos_vids, False)\n",
+    "\n",
+    "\n",
+    "top_autos_info = utils.add_pop_unpop_col(top_autos_info, True)\n",
+    "top_autos_comments = utils.add_pop_unpop_col(top_autos_comments, True)\n",
+    "top_autos_vids = utils.add_pop_unpop_col(top_autos_vids, True)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "c8dde32d",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "comb_autos_info = utils.combine_pop_unpop_df(top_autos_info, bottom_autos_info)\n",
+    "comb_autos_comments = utils.combine_pop_unpop_df(top_autos_comments, bottom_autos_comments)\n",
+    "comb_autos_vids = utils.combine_pop_unpop_df(top_autos_vids, bottom_autos_vids)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "619bdc5d",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "comb_autos_info, comb_autos_vids, comb_autos_comments"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "05867cde",
+   "metadata": {},
+   "source": [
+    "### Removing the Outliers of the Data"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "2af1fee1",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Remove outliers from the dataframe\n",
+    "cleaned_dataframe = utils.remove_outliers(comb_autos_vids)\n",
+    "print(comb_autos_vids.shape, cleaned_dataframe.shape)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "16689701",
+   "metadata": {},
+   "source": [
+    "### Splitting the columns into 2 Chunks each having popular and unpopular channels on the base of mean of views"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "57321b47",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# chunklow_ch_names, chunkhigh_ch_names = utils.split_and_merge_by_views(comb_autos_info)\n",
+    "# chunklow_ch_names.channelName.tolist(), chunkhigh_ch_names.channelName.tolist()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "cc120100",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "summed_views_df, mean_views_popular, mean_views_unpopular, popular_below_mean, popular_above_mean, unpopular_below_mean, unpopular_above_mean = utils.pop_unpop_chunks(cleaned_dataframe)\n",
+    "\n",
+    "above_mean_chunk = popular_above_mean + unpopular_above_mean\n",
+    "below_mean_chunk = popular_below_mean + unpopular_below_mean"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "9798523a",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "print(\"Mean views of popular channels: \", mean_views_popular)\n",
+    "print(\"Mean views of unpopular channels: \", mean_views_unpopular)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "0c8afc39",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "print(f\"Popular channel names with views above mean: {(popular_above_mean)}\")\n",
+    "print(f\"Popular channel names with views below mean: {(popular_below_mean)}\")\n",
+    "print(f\"UnPopular channel names with views above mean: {(unpopular_above_mean)}\")\n",
+    "print(f\"UnPopular channel names with views above mean: {(unpopular_below_mean)}\")"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "1b32ac74",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Run the first App to see the growth of views over the years for above mean chunk\n",
+    "app = plots.dynamic_view_plots(cleaned_dataframe)\n",
+    "app.run_server(debug=True, use_reloader=False, mode=\"inline\", port=8051)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "1f6dee35",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "percentiles = ['.25', '.5', '.75', '.9', '.95', '.99']\n",
+    "app = plots.percentiles_plot(cleaned_dataframe, percentiles=percentiles)\n",
+    "app.run_server(debug=True, use_reloader=False, mode=\"inline\", port=9990)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 154,
+   "id": "5ef7704f",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "\n",
+    "import pandas as pd\n",
+    "\n",
+    "def calculate_percentiles_df(df, percentiles, year_column='publishingYear', column='viewCount'):\n",
+    "    percentiles_data_popular = {percentile: {} for percentile in percentiles}\n",
+    "    percentiles_data_unpopular = {percentile: {} for percentile in percentiles}\n",
+    "\n",
+    "    for channel in df.channelTitle.unique():\n",
+    "        channel_df = df[df['channelTitle'] == channel]\n",
+    "        for year in channel_df[year_column].unique():\n",
+    "            year_df = channel_df[channel_df[year_column] == year]\n",
+    "            for percentile in percentiles:\n",
+    "                if percentile not in percentiles_data_popular:\n",
+    "                    percentiles_data_popular[percentile] = {}\n",
+    "                if channel not in percentiles_data_popular[percentile]:\n",
+    "                    percentiles_data_popular[percentile][channel] = {}\n",
+    "                if channel_df['pop_unpop'].iloc[0] == 0:\n",
+    "                    # Unpopular channel\n",
+    "                    if percentile not in percentiles_data_unpopular:\n",
+    "                        percentiles_data_unpopular[percentile] = {}\n",
+    "                    if channel not in percentiles_data_unpopular[percentile]:\n",
+    "                        percentiles_data_unpopular[percentile][channel] = {}\n",
+    "                    value = year_df[column].quantile(float(percentile)) / 1_000_000  # Convert to millions\n",
+    "                    percentiles_data_unpopular[percentile][channel][year] = value\n",
+    "                else:\n",
+    "                    # Popular channel\n",
+    "                    value = year_df[column].quantile(float(percentile)) / 1_000_000  # Convert to millions\n",
+    "                    percentiles_data_popular[percentile][channel][year] = value\n",
+    "\n",
+    "    # Create DataFrames for popular and unpopular channels\n",
+    "    df_percentiles_popular = pd.DataFrame.from_dict({(i, j): percentiles_data_popular[i][j]\n",
+    "                                                     for i in percentiles_data_popular.keys()\n",
+    "                                                     for j in percentiles_data_popular[i].keys()},\n",
+    "                                                    orient='index')\n",
+    "\n",
+    "    df_percentiles_unpopular = pd.DataFrame.from_dict({(i, j): percentiles_data_unpopular[i][j]\n",
+    "                                                       for i in percentiles_data_unpopular.keys()\n",
+    "                                                       for j in percentiles_data_unpopular[i].keys()},\n",
+    "                                                      orient='index')\n",
+    "\n",
+    "    # Transpose the DataFrames for better readability\n",
+    "    df_percentiles_popular = df_percentiles_popular.transpose()\n",
+    "    df_percentiles_unpopular = df_percentiles_unpopular.transpose()\n",
+    "\n",
+    "    return df_percentiles_popular, df_percentiles_unpopular\n",
+    "\n",
+    "\n",
+    "def return_means_from_percentiles_for_given_years(df, percentiles, years, year_column='publishingYear', column='viewCount'):\n",
+    "    df_percentiles_popular, df_percentiles_unpopular = calculate_percentiles_df(df, percentiles, year_column, column)\n",
+    "    means_popular = df_percentiles_popular.loc[[2023,2022,2021]].describe()\n",
+    "    means_popular = means_popular.describe().loc['mean']\n",
+    "\n",
+    "    means_unpopular = .loc[[2023,2022,2021]].describe()\n",
+    "    means_unpopular = means_unpopular.describe().loc['mean']"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 155,
+   "id": "abb5e284",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "popular_means, unpopular_means = return_means_from_percentiles_for_given_years(cleaned_dataframe, percentiles=['0.95','0.99'], years = ['2021', '2022', '2023'], column = 'viewCount', year_column='publishingYear')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 160,
+   "id": "31f357c8",
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/html": [
+       "<div>\n",
+       "<style scoped>\n",
+       "    .dataframe tbody tr th:only-of-type {\n",
+       "        vertical-align: middle;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe tbody tr th {\n",
+       "        vertical-align: top;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe thead tr th {\n",
+       "        text-align: left;\n",
+       "    }\n",
+       "</style>\n",
+       "<table border=\"1\" class=\"dataframe\">\n",
+       "  <thead>\n",
+       "    <tr>\n",
+       "      <th></th>\n",
+       "      <th colspan=\"10\" halign=\"left\">.9</th>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th></th>\n",
+       "      <th>Doctor D.S.</th>\n",
+       "      <th>STAR GAMERS</th>\n",
+       "      <th>DailyDrivenExotics</th>\n",
+       "      <th>MEDCARS</th>\n",
+       "      <th>Scotty Kilmer</th>\n",
+       "      <th>Need for Speed</th>\n",
+       "      <th>Hot Wheels</th>\n",
+       "      <th>ChrisFix</th>\n",
+       "      <th>DIY Garage</th>\n",
+       "      <th>Donut</th>\n",
+       "    </tr>\n",
+       "  </thead>\n",
+       "  <tbody>\n",
+       "    <tr>\n",
+       "      <th>2023</th>\n",
+       "      <td>0.514230</td>\n",
+       "      <td>0.153978</td>\n",
+       "      <td>0.752496</td>\n",
+       "      <td>0.691386</td>\n",
+       "      <td>0.324927</td>\n",
+       "      <td>0.279694</td>\n",
+       "      <td>0.083231</td>\n",
+       "      <td>4.681958</td>\n",
+       "      <td>21.914437</td>\n",
+       "      <td>2.490661</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>2022</th>\n",
+       "      <td>1.337879</td>\n",
+       "      <td>0.518308</td>\n",
+       "      <td>0.768275</td>\n",
+       "      <td>1.457998</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>3.865084</td>\n",
+       "      <td>1.098760</td>\n",
+       "      <td>4.064211</td>\n",
+       "      <td>10.092123</td>\n",
+       "      <td>3.714515</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>2021</th>\n",
+       "      <td>1.933215</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>0.947188</td>\n",
+       "      <td>1.229663</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>0.709773</td>\n",
+       "      <td>6.833798</td>\n",
+       "      <td>45.493301</td>\n",
+       "      <td>3.135927</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>2020</th>\n",
+       "      <td>2.384484</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>0.911579</td>\n",
+       "      <td>0.998307</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>1.695646</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>15.600819</td>\n",
+       "      <td>13.140371</td>\n",
+       "      <td>3.740496</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>2019</th>\n",
+       "      <td>2.646184</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>0.884130</td>\n",
+       "      <td>0.733286</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>11.821975</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>15.790161</td>\n",
+       "      <td>70.828877</td>\n",
+       "      <td>2.955014</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>2018</th>\n",
+       "      <td>4.321568</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>0.646404</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>0.514366</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>14.007071</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>2.175159</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>2017</th>\n",
+       "      <td>0.393185</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>0.793629</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>8.520718</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>11.342839</td>\n",
+       "      <td>0.094324</td>\n",
+       "      <td>NaN</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>2016</th>\n",
+       "      <td>0.012453</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>3.255661</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>1.214394</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>9.694559</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>2015</th>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>0.397468</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>8.020371</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>7.103506</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>2014</th>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>0.546918</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>7.368619</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>2013</th>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>2.425467</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>2.733456</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>2012</th>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>1.311744</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>2011</th>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>0.226647</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>2010</th>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>0.332196</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "    </tr>\n",
+       "  </tbody>\n",
+       "</table>\n",
+       "</div>"
+      ],
+      "text/plain": [
+       "              .9                                                         \\\n",
+       "     Doctor D.S. STAR GAMERS DailyDrivenExotics   MEDCARS Scotty Kilmer   \n",
+       "2023    0.514230    0.153978           0.752496  0.691386      0.324927   \n",
+       "2022    1.337879    0.518308           0.768275  1.457998           NaN   \n",
+       "2021    1.933215         NaN           0.947188  1.229663           NaN   \n",
+       "2020    2.384484         NaN           0.911579  0.998307           NaN   \n",
+       "2019    2.646184         NaN           0.884130  0.733286           NaN   \n",
+       "2018    4.321568         NaN                NaN  0.646404           NaN   \n",
+       "2017    0.393185         NaN                NaN  0.793629           NaN   \n",
+       "2016    0.012453         NaN                NaN  3.255661           NaN   \n",
+       "2015         NaN         NaN                NaN  0.397468           NaN   \n",
+       "2014         NaN         NaN                NaN       NaN           NaN   \n",
+       "2013         NaN         NaN                NaN       NaN           NaN   \n",
+       "2012         NaN         NaN                NaN       NaN           NaN   \n",
+       "2011         NaN         NaN                NaN       NaN           NaN   \n",
+       "2010         NaN         NaN                NaN       NaN           NaN   \n",
+       "\n",
+       "                                                                \n",
+       "     Need for Speed Hot Wheels   ChrisFix DIY Garage     Donut  \n",
+       "2023       0.279694   0.083231   4.681958  21.914437  2.490661  \n",
+       "2022       3.865084   1.098760   4.064211  10.092123  3.714515  \n",
+       "2021            NaN   0.709773   6.833798  45.493301  3.135927  \n",
+       "2020       1.695646        NaN  15.600819  13.140371  3.740496  \n",
+       "2019      11.821975        NaN  15.790161  70.828877  2.955014  \n",
+       "2018       0.514366        NaN  14.007071        NaN  2.175159  \n",
+       "2017       8.520718        NaN  11.342839   0.094324       NaN  \n",
+       "2016       1.214394        NaN   9.694559        NaN       NaN  \n",
+       "2015       8.020371        NaN   7.103506        NaN       NaN  \n",
+       "2014       0.546918        NaN   7.368619        NaN       NaN  \n",
+       "2013       2.425467        NaN   2.733456        NaN       NaN  \n",
+       "2012            NaN        NaN   1.311744        NaN       NaN  \n",
+       "2011            NaN        NaN   0.226647        NaN       NaN  \n",
+       "2010            NaN        NaN   0.332196        NaN       NaN  "
+      ]
+     },
+     "execution_count": 160,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "pdf"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 159,
+   "id": "6675538c",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "pdf,unpdf  = calculate_percentiles_df(cleaned_dataframe, percentiles = ['.9'], column='viewCount')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 147,
+   "id": "57d1f12b",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "dfm = pdf.loc[[2023,2022,2021]].describe()\n",
+    "dfm = dfm.describe().loc['mean']\n",
+    "\n",
+    "dfm1 = unpdf.loc[[2023,2022,2021]].describe()\n",
+    "dfm1 = dfm1.describe().loc['mean']"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 148,
+   "id": "6a915d18",
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       ".9  Doctor D.S.            1.415156\n",
+       "    STAR GAMERS            0.534310\n",
+       "    DailyDrivenExotics     1.002109\n",
+       "    MEDCARS                1.275420\n",
+       "    Scotty Kilmer          0.421366\n",
+       "    Need for Speed         2.121198\n",
+       "    Hot Wheels             0.916937\n",
+       "    ChrisFix               4.419767\n",
+       "    DIY Garage            21.757914\n",
+       "    Donut                  2.788194\n",
+       "Name: mean, dtype: float64"
+      ]
+     },
+     "execution_count": 148,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "dfm"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 149,
+   "id": "43ebef10",
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       ".9  Ford Argentina        1.304907\n",
+       "    Sonic Electronix      0.385614\n",
+       "    AirshowStuffVideos    0.425369\n",
+       "    Auto Plus             0.399265\n",
+       "    DutchMotorsport       0.456168\n",
+       "    DPCcars               0.146207\n",
+       "    Mazda USA             0.585266\n",
+       "    Sergio Hernandez      0.530031\n",
+       "    DREAM MACHINES        0.386300\n",
+       "    NoNonsenseKnowHow     1.068393\n",
+       "Name: mean, dtype: float64"
+      ]
+     },
+     "execution_count": 149,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "dfm1"
+   ]
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 3 (ipykernel)",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.11.3"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 5
+}
