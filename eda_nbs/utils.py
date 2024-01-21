@@ -58,14 +58,29 @@ def parse_published_at(x):
         return None
 
 
+def parse_count(x):
+    try:
+        return int(x)
+    except ValueError:
+        # print(f"Removing row with viewCount as string: {x}")
+        return None
+
+
 def parse_cols(df: pd.DataFrame) -> pd.DataFrame:
+    # Print total rows before parsing
+    total_rows_before = len(df)
+    print(f"Total rows before parsing: {total_rows_before}")
+
     # Apply the parsing function to the 'publishedAt' column
     df['publishedAt'] = df['publishedAt'].apply(parse_published_at)
 
     # Drop rows with parsing errors and show the count
-    num_dropped_rows = df['publishedAt'].isna().sum()
-    print(f"Parser dropped {num_dropped_rows} rows")
-    df.dropna(subset=['publishedAt'], inplace=True)
+    num_dropped_rows_published_at = df['publishedAt'].isna().sum()
+    print(
+        f"Parser dropped {num_dropped_rows_published_at} rows during 'publishedAt' parsing")
+
+    # Remove rows where 'publishedAt' is not parsed
+    df = df.dropna(subset=['publishedAt'])
 
     # Create publish day (in the week) column
     df['publishDayName'] = df['publishedAt'].apply(lambda x: x.strftime("%A"))
@@ -97,25 +112,89 @@ def parse_cols(df: pd.DataFrame) -> pd.DataFrame:
         lambda x: 0 if (x == 0 or x == 'nan') else len(eval(x)))
     df.drop(['tags'], axis=1, inplace=True)
 
+    # Apply the parsing function to the 'viewCount' column
+    df['viewCount'] = df['viewCount'].apply(parse_count)
+    df['likeCount'] = df['likeCount'].apply(parse_count)
+    df['commentCount'] = df['commentCount'].apply(parse_count)
+
+    # Drop rows where 'viewCount' is a string
+    num_dropped_rows_viewcount = df['viewCount'].isna().sum()
+    print(
+        f"Parser dropped {num_dropped_rows_viewcount} rows during 'viewCount' parsing")
+
+    # Remove rows where 'viewCount' is 0
+    df = df[df['viewCount'] != 0]
+
     # Comments and likes per 1000 view ratio
-    df['likeRatio'] = df['likeCount'] / df['viewCount'] * 1000
-    df['commentRatio'] = df['commentCount'] / df['viewCount'] * 1000
+    df['likeRatio'] = (df['likeCount'] / df['viewCount']) * 1000
+    df['commentRatio'] = (df['commentCount'] / df['viewCount']) * 1000
 
     # Title character length
     df['titleLength'] = df['title'].apply(lambda x: len(x))
 
+    # Print total rows after parsing
+    total_rows_after = len(df)
+    print(f"Total rows after parsing: {total_rows_after}")
+
     return df
 
+# def remove_outliers(df, channel_column='channelTitle', year_column='publishingYear', month_column='publishingMonthName', column='viewCount', threshold=1.5):
+#     """
+#     Remove outliers for each channel, for each month, and for all years.
 
-def remove_outliers(df, channel_column='channelTitle', year_column='publishingYear', month_column='publishingMonthName', column='viewCount', threshold=1.5):
+#     Parameters:
+#     - df: DataFrame containing the data.
+#     - channel_column: Name of the column containing channel titles.
+#     - year_column: Name of the column containing publishing years.
+#     - month_column: Name of the column containing publishing months.
+#     - column: Name of the column containing view counts.
+#     - threshold: Threshold for detecting outliers (default is 1.5).
+
+#     Returns:
+#     - DataFrame with outliers removed.
+#     """
+#     df_no_outliers = pd.DataFrame()
+
+#     # Iterate over unique channels
+#     for channel in df[channel_column].unique():
+#         channel_df = df[df[channel_column] == channel]
+
+#         # Iterate over unique years
+#         for year in channel_df[year_column].unique():
+#             year_df = channel_df[channel_df[year_column] == year]
+
+#             # Iterate over unique months
+#             for month in year_df[month_column].unique():
+#                 month_df = year_df[year_df[month_column] == month]
+
+#                 # Calculate the IQR (Interquartile Range)
+#                 q1 = month_df[column].quantile(0.25)
+#                 q3 = month_df[column].quantile(0.75)
+#                 iqr = q3 - q1
+
+#                 # Define the upper and lower bounds to identify outliers
+#                 lower_bound = q1 - threshold * iqr
+#                 upper_bound = q3 + threshold * iqr
+
+#                 # Remove outliers
+#                 month_df_no_outliers = month_df[(month_df[column] >= lower_bound) & (
+#                     month_df[column] <= upper_bound)]
+
+#                 # Append the result to the final DataFrame
+#                 df_no_outliers = pd.concat(
+#                     [df_no_outliers, month_df_no_outliers])
+
+#     return df_no_outliers
+
+
+def remove_outliers(df, channel_column='channelTitle', year_column='publishingYear', column='viewCount', threshold=1.5):
     """
-    Remove outliers for each channel, for each month, and for all years.
+    Remove outliers for each channel and each year.
 
     Parameters:
     - df: DataFrame containing the data.
     - channel_column: Name of the column containing channel titles.
     - year_column: Name of the column containing publishing years.
-    - month_column: Name of the column containing publishing months.
     - column: Name of the column containing view counts.
     - threshold: Threshold for detecting outliers (default is 1.5).
 
@@ -132,26 +211,22 @@ def remove_outliers(df, channel_column='channelTitle', year_column='publishingYe
         for year in channel_df[year_column].unique():
             year_df = channel_df[channel_df[year_column] == year]
 
-            # Iterate over unique months
-            for month in year_df[month_column].unique():
-                month_df = year_df[year_df[month_column] == month]
+            # Calculate the IQR (Interquartile Range)
+            q1 = year_df[column].quantile(0.25)
+            q3 = year_df[column].quantile(0.75)
+            iqr = q3 - q1
 
-                # Calculate the IQR (Interquartile Range)
-                q1 = month_df[column].quantile(0.25)
-                q3 = month_df[column].quantile(0.75)
-                iqr = q3 - q1
+            # Define the upper and lower bounds to identify outliers
+            lower_bound = q1 - threshold * iqr
+            upper_bound = q3 + threshold * iqr
 
-                # Define the upper and lower bounds to identify outliers
-                lower_bound = q1 - threshold * iqr
-                upper_bound = q3 + threshold * iqr
+            # Remove outliers
+            year_df_no_outliers = year_df[(year_df[column] >= lower_bound) & (
+                year_df[column] <= upper_bound)]
 
-                # Remove outliers
-                month_df_no_outliers = month_df[(month_df[column] >= lower_bound) & (
-                    month_df[column] <= upper_bound)]
-
-                # Append the result to the final DataFrame
-                df_no_outliers = pd.concat(
-                    [df_no_outliers, month_df_no_outliers])
+            # Append the result to the final DataFrame
+            df_no_outliers = pd.concat(
+                [df_no_outliers, year_df_no_outliers])
 
     return df_no_outliers
 
@@ -186,6 +261,7 @@ def pop_unpop_chunks(df):
 
     return summed_views_df, mean_views_popular, mean_views_unpopular, popular_below_mean, popular_above_mean, unpopular_below_mean, unpopular_above_mean
 
+
 def calculate_percentiles_df(df, percentiles, year_column='publishingYear', column='viewCount'):
     percentiles_data_popular = {percentile: {} for percentile in percentiles}
     percentiles_data_unpopular = {percentile: {} for percentile in percentiles}
@@ -205,11 +281,13 @@ def calculate_percentiles_df(df, percentiles, year_column='publishingYear', colu
                         percentiles_data_unpopular[percentile] = {}
                     if channel not in percentiles_data_unpopular[percentile]:
                         percentiles_data_unpopular[percentile][channel] = {}
-                    value = year_df[column].quantile(float(percentile)) / 1_000_000  # Convert to millions
+                    value = year_df[column].quantile(
+                        float(percentile)) / 1_000_000  # Convert to millions
                     percentiles_data_unpopular[percentile][channel][year] = value
                 else:
                     # Popular channel
-                    value = year_df[column].quantile(float(percentile)) / 1_000_000  # Convert to millions
+                    value = year_df[column].quantile(
+                        float(percentile)) / 1_000_000  # Convert to millions
                     percentiles_data_popular[percentile][channel][year] = value
 
     # Create DataFrames for popular and unpopular channels
@@ -231,8 +309,9 @@ def calculate_percentiles_df(df, percentiles, year_column='publishingYear', colu
 
 
 def return_means_from_percentiles_for_given_years(df, percentiles, years, year_column='publishingYear', column='viewCount'):
-    df_percentiles_popular, df_percentiles_unpopular = calculate_percentiles_df(df, percentiles, year_column, column)
-    
+    df_percentiles_popular, df_percentiles_unpopular = calculate_percentiles_df(
+        df, percentiles, year_column, column)
+
     # Calculate means for popular channels
     means_popular = df_percentiles_popular.loc[years].describe()
     means_popular = means_popular.describe().loc[['mean']]
@@ -240,23 +319,23 @@ def return_means_from_percentiles_for_given_years(df, percentiles, years, year_c
     means_popular = means_popular.transpose()
     means_popular = means_popular.sort_values(by='ViewMean', ascending=True)
     means_popular['pop_unpop'] = 1
-    
+
     # Calculate cumulative average
     means_popular['cumulative_average'] = means_popular['ViewMean'].expanding().mean()
-    
-    
+
     # Repeat for unpopular channels
     means_unpopular = df_percentiles_unpopular.loc[years].describe()
     means_unpopular = means_unpopular.describe().loc[['mean']]
     means_unpopular = means_unpopular.rename(index={'mean': 'ViewMean'})
     means_unpopular = means_unpopular.transpose()
-    means_unpopular = means_unpopular.sort_values(by='ViewMean', ascending=True)
+    means_unpopular = means_unpopular.sort_values(
+        by='ViewMean', ascending=True)
     means_unpopular['pop_unpop'] = 0
-    
-        
+
     # Calculate cumulative average
-    means_unpopular['cumulative_average'] = means_unpopular['ViewMean'].expanding().mean()
-    
+    means_unpopular['cumulative_average'] = means_unpopular['ViewMean'].expanding(
+    ).mean()
+
     # Combine both means_popular and means_unpopular into a single DataFrame
-    means_df = pd.concat([means_popular, means_unpopular], axis=0)    
+    means_df = pd.concat([means_popular, means_unpopular], axis=0)
     return means_df
